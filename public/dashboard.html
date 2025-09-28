@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Link Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px; max-width: 1000px; margin:auto }
+    .card { border:1px solid #eee; padding:12px; border-radius:8px; margin-bottom:12px }
+    pre { background:#f6f8fa; padding:8px; border-radius:6px; overflow:auto }
+    .small { font-size:0.9rem }
+  </style>
+</head>
+<body>
+  <h1>Link Dashboard</h1>
+  <p><a href="/">Back to Shortener</a></p>
+
+  <div>
+    <label>Short code:</label>
+    <input id="code" placeholder="abc123" />
+    <button id="load">Load</button>
+  </div>
+
+  <div id="out"></div>
+
+<script>
+function qs(name) {
+  const params = new URLSearchParams(location.search);
+  return params.get(name);
+}
+
+async function loadStats(code) {
+  const out = document.getElementById("out");
+  out.innerHTML = "<div class='card'>Loading…</div>";
+  try {
+    const res = await fetch(`/api/stats/${encodeURIComponent(code)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({error:"unknown"}));
+      out.innerHTML = `<div class="card">Error: ${err.error || res.statusText}</div>`;
+      return;
+    }
+    const data = await res.json();
+    const last = (data.lastClicks || []).slice(0,20).map(c => `<div>${c.ts} — ${c.ref} — ${c.ip || ''} — ${c.ua ? c.ua.slice(0,80) : ''}</div>`).join("");
+    out.innerHTML = `
+      <div class="card">
+        <div><strong>Short:</strong> <a href="/${data.code}" target="_blank">${location.origin}/${data.code}</a></div>
+        <div><strong>Original:</strong> ${data.originalUrl}</div>
+        <div><strong>Clicks:</strong> ${data.clicks}</div>
+        <div style="margin-top:8px"><strong>Clicks by day:</strong><pre>${JSON.stringify(data.clicksByDay, null, 2)}</pre></div>
+        <div><strong>Top referrers:</strong><pre>${JSON.stringify(data.referrers, null, 2)}</pre></div>
+        <div style="margin-top:8px"><strong>Recent clicks:</strong>${last ? '<div style="margin-top:8px">'+last+'</div>' : '<div class="small">No clicks yet</div>'}</div>
+      </div>
+    `;
+  } catch (err) {
+    out.innerHTML = `<div class="card">Error: ${err.message}</div>`;
+  }
+}
+
+document.getElementById("load").addEventListener("click", () => {
+  const code = document.getElementById("code").value.trim();
+  if (code) loadStats(code);
+});
+
+const codeFromUrl = qs("code");
+if (codeFromUrl) {
+  document.getElementById("code").value = codeFromUrl;
+  loadStats(codeFromUrl);
+}
+</script>
+</body>
+</html>
